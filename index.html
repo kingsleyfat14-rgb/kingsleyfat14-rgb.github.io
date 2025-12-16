@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Super-Body Puzzle Quest</title>
+  <style>
+    :root {
+      --primary: #2c3e50;
+      --accent: #f1c40f;
+      --success: #27ae60;
+      --error: #e74c3c;
+
+      --bg1: #f0f8ff;
+      --bg2: #fff7e6;
+      --card: rgba(255, 255, 255, 0.9);
+      --ink: #22303b;
+      --muted: #5b6b79;
+      --ring: rgba(52, 152, 219, 0.25);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif;
+      background:
+        radial-gradient(1200px 600px at 20% 10%, rgba(241,196,15,0.18), transparent 60%),
+        radial-gradient(900px 500px at 85% 25%, rgba(52,152,219,0.16), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      min-height: 100vh;
+      margin: 0;
+      color: var(--ink);
+    }
+
+    h1 {
+      color: var(--primary);
+      text-align: center;
+      margin: 10px 0 18px;
+      font-size: clamp(1.5rem, 3vw, 2.1rem);
+      letter-spacing: 0.3px;
+      text-shadow: 0 2px 0 rgba(0,0,0,0.04);
+    }
+
+    /* --- Top Info Panels --- */
+    .top-panels {
+      width: 100%;
+      max-width: 1000px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    @media (min-width: 860px) {
+      .top-panels { grid-template-columns: 1.15fr 0.85fr; }
+    }
+
+    .panel {
+      background: var(--card);
+      border: 3px solid rgba(44, 62, 80, 0.15);
+      border-radius: 18px;
+      box-shadow: 0 14px 30px rgba(0,0,0,0.08);
+      padding: 16px 16px 14px;
+      backdrop-filter: blur(6px);
+    }
+
+    .panel h2 {
+      margin: 0 0 8px;
+      color: var(--primary);
+      font-size: 1.15rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .panel p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.35;
+      font-size: 0.98rem;
+    }
+
+    .panel .small {
+      margin-top: 8px;
+      font-size: 0.92rem;
+      color: #6c7a88;
+    }
+
+    .howto {
+      margin: 10px 0 0;
+      padding-left: 18px;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    .howto li { margin: 6px 0; }
+
+    /* --- Layout Containers --- */
+    .main-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 24px;
+      width: 100%;
+      max-width: 1000px;
+    }
+
+    .game-column {
+      flex: 1;
+      min-width: 300px;
+      max-width: 520px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* --- Puzzle Styles --- */
+    .puzzle-container {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.92);
+      padding: 18px;
+      border-radius: 20px;
+      box-shadow: 0 12px 28px rgba(0,0,0,0.1);
+      border: 4px solid var(--primary);
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .puzzle-container::before {
+      content: "";
+      position: absolute;
+      inset: -2px;
+      background:
+        radial-gradient(500px 200px at 10% 0%, rgba(241,196,15,0.20), transparent 60%),
+        radial-gradient(420px 220px at 90% 10%, rgba(155,89,182,0.14), transparent 55%);
+      pointer-events: none;
+      filter: saturate(1.1);
+    }
+
+    .puzzle-container > * { position: relative; }
+
+    .puzzle-container h2 {
+      margin: 0 0 10px;
+      color: var(--primary);
+    }
+
+    .puzzle-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(86px, 100px));
+      grid-template-rows: repeat(3, minmax(86px, 100px));
+      gap: 2px;
+      background-color: #cfd6dd;
+      border: 2px solid #2f3a44;
+      margin: 12px auto 10px;
+      width: min(304px, 100%);
+    }
+
+    .puzzle-piece {
+      width: 100%;
+      height: 100%;
+      background-color: #e8edf2; /* Hidden color */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      color: #93a3b2;
+      transition: transform 0.35s ease, filter 0.35s ease, box-shadow 0.35s ease, background-color 0.35s ease;
+      position: relative;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    .puzzle-piece:not(.unlocked) {
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.06);
+    }
+
+    .puzzle-piece.unlocked {
+      background-image:
+        radial-gradient(circle at center, #f1c40f 0%, #f1c40f 20%, transparent 20%),
+        conic-gradient(from 0deg,
+          #e74c3c 0deg 30deg,
+          #3498db 30deg 60deg,
+          #2ecc71 60deg 90deg,
+          #9b59b6 90deg 120deg,
+          #e67e22 120deg 150deg,
+          #1abc9c 150deg 180deg,
+          #e74c3c 180deg 210deg,
+          #3498db 210deg 240deg,
+          #2ecc71 240deg 270deg,
+          #9b59b6 270deg 300deg,
+          #e67e22 300deg 330deg,
+          #1abc9c 330deg 360deg);
+      background-size: 304px 304px; /* Size of full puzzle */
+      border: none;
+      color: transparent;
+      animation: flash 0.5s;
+      filter: drop-shadow(0 6px 10px rgba(0,0,0,0.18));
+      transform: translateZ(0);
+    }
+
+    /* Correctly position the background for each cell */
+    .p0 { background-position: 0 0; }
+    .p1 { background-position: -102px 0; }
+    .p2 { background-position: -204px 0; }
+    .p3 { background-position: 0 -102px; }
+    .p4 { background-position: -102px -102px; }
+    .p5 { background-position: -204px -102px; }
+    .p6 { background-position: 0 -204px; }
+    .p7 { background-position: -102px -204px; }
+    .p8 { background-position: -204px -204px; }
+
+    .progress-bar {
+      margin-top: 8px;
+      font-weight: bold;
+      color: #4a5966;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(52,152,219,0.10);
+      border: 2px dashed rgba(52,152,219,0.25);
+      display: inline-block;
+    }
+
+    /* --- Game Controls --- */
+    .controls {
+      margin-bottom: 14px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+      width: 100%;
+    }
+
+    button {
+      padding: 10px 18px;
+      font-size: 0.95rem;
+      border: none;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
+      color: white;
+      font-weight: bold;
+      box-shadow: 0 8px 16px rgba(0,0,0,0.10);
+      font-family: inherit;
+      outline: none;
+    }
+
+    button:focus-visible {
+      box-shadow: 0 0 0 5px var(--ring), 0 8px 16px rgba(0,0,0,0.10);
+    }
+
+    button:hover { transform: translateY(-1px) scale(1.02); }
+    button:active { transform: translateY(0) scale(0.98); }
+
+    .btn-fact { background: linear-gradient(135deg, #2ecc71, #1e9f55); }
+    .btn-action { background: linear-gradient(135deg, #e67e22, #cc5f12); }
+    .btn-mindful { background: linear-gradient(135deg, #8e44ad, #6c2f86); }
+
+    /* --- Question Card --- */
+    .card {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.93);
+      border-radius: 20px;
+      box-shadow: 0 12px 28px rgba(0,0,0,0.14);
+      display: none; /* Hidden initially */
+      flex-direction: column;
+      align-items: center;
+      padding: 18px;
+      text-align: center;
+      border: 4px solid #34495e;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      inset: -2px;
+      background:
+        radial-gradient(360px 220px at 15% 0%, rgba(241,196,15,0.18), transparent 60%),
+        radial-gradient(340px 220px at 85% 10%, rgba(52,152,219,0.14), transparent 55%);
+      pointer-events: none;
+    }
+
+    .card > * { position: relative; }
+
+    .card-type {
+      font-weight: 900;
+      letter-spacing: 0.6px;
+      color: #3b4c5d;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(44,62,80,0.08);
+      border: 1px solid rgba(44,62,80,0.10);
+      margin-bottom: 8px;
+    }
+
+    .card-icon { font-size: 3.3rem; margin: 4px 0 8px; }
+    .card-content {
+      font-size: 1.15rem;
+      color: #22303b;
+      margin: 6px 0 14px 0;
+      min-height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .options {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .option-button {
+      background: linear-gradient(135deg, #3498db, #2c7bb3);
+      width: 100%;
+      padding: 12px;
+      border-radius: 12px;
+      font-size: 1rem;
+      box-shadow: 0 8px 14px rgba(52,152,219,0.18);
+    }
+
+    .option-button.correct { background: linear-gradient(135deg, var(--success), #1f8a4d) !important; pointer-events: none; }
+    .option-button.wrong { background: linear-gradient(135deg, var(--error), #c0392b) !important; opacity: 0.75; pointer-events: none; }
+    .option-button.disabled { pointer-events: none; opacity: 0.6; background: #95a5a6; box-shadow: none; }
+
+    .card-answer {
+      margin-top: 12px;
+      font-size: 1rem;
+      font-weight: bold;
+      min-height: 1.5em;
+    }
+
+    #next-btn {
+      background: linear-gradient(135deg, var(--accent), #ffd34d);
+      color: #333;
+      margin-top: 10px;
+      display: none;
+      box-shadow: 0 10px 18px rgba(241,196,15,0.25);
+    }
+
+    /* --- Intro message --- */
+    #intro-msg {
+      width: 100%;
+      text-align: center;
+      color: #556371;
+      margin-top: 6px;
+      background: rgba(255,255,255,0.75);
+      border: 2px solid rgba(44,62,80,0.12);
+      border-radius: 16px;
+      padding: 14px 12px;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.06);
+    }
+
+    /* --- Win Screen --- */
+    #win-screen {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.85);
+      color: white;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      text-align: center;
+      padding: 18px;
+    }
+    #win-screen h2 { font-size: clamp(2rem, 6vw, 3rem); color: var(--accent); margin: 0; }
+
+    @keyframes flash {
+      0% { filter: brightness(2); transform: scale(0.98); }
+      100% { filter: brightness(1); transform: scale(1); }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🧩 Super-Body Puzzle Quest 🏃‍♂️</h1>
+
+  <!-- Added: Game Overview + How to Play (no changes to game functions) -->
+  <section class="top-panels" aria-label="Game Information">
+    <div class="panel">
+      <h2>Game Overview</h2>
+      <p>
+        Super Body quest, build your knowledge on dieting, minerals, macro and micro nutrients. Learn about exercising an dimportance of keeping a healthy lifestyle.
+      </p>
+      <p class="small">
+        In this game, you’ll complete the puzzle by answering questions and completing challenges to unlock every puzzle piece.
+      </p>
+    </div>
+
+    <div class="panel">
+      <h2>How to Play</h2>
+      <ol class="howto">
+        <li><strong></strong>: Choose one of the categories (Food fact, Action challenge, and Mindful Moment.)</li>
+        <li><strong></strong>: Answer the question/or do the task it suggest</li>
+        <li><strong></strong>: Answer three questions correct to unlock one puzzle piece</li>
+        <li><strong></strong>: Unlock all puzzle pieces to finish the puzzle</li>
+        <li><strong></strong>: Reise on the questions you got wrong and play again!</li>
+      </ol>
+    </div>
+  </section>
+
+  <div class="main-container">
+    <!-- Left Column: The Puzzle -->
+    <div class="game-column">
+      <div class="puzzle-container">
+        <h2>Your Puzzle</h2>
+        <div class="puzzle-grid" id="puzzle-grid">
+          <!-- 9 Pieces generated by JS -->
+        </div>
+        <div class="progress-bar" id="progress-text">
+          Correct Answers needed for next piece: 3
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: The Game -->
+    <div class="game-column">
+      <div class="controls">
+        <button class="btn-fact" onclick="drawCard('fact')">Food Fact</button>
+        <button class="btn-action" onclick="drawCard('action')">Action Challenge</button>
+        <button class="btn-mindful" onclick="drawCard('mindful')">Mindful Moment</button>
+      </div>
+
+      <div id="game-card" class="card">
+        <div class="card-type" id="card-type"></div>
+        <div class="card-icon" id="card-icon"></div>
+        <div class="card-content" id="card-text"></div>
+
+        <div class="options" id="options"></div>
+
+        <div class="card-answer" id="card-answer"></div>
+
+        <button id="next-btn" onclick="hideCard()">Pick Another Category ➡️</button>
+      </div>
+
+      <div id="intro-msg">
+        Select a category above to earn puzzle pieces!<br />
+        <strong>1 Piece = 3 Correct Answers</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- Win Overlay -->
+  <div id="win-screen">
+    <h2>🏆 YOU WIN! 🏆</h2>
+    <p style="font-size: 1.5rem; margin: 10px 0 0;">You completed the Super-Body Puzzle!</p>
+    <div style="font-size: 5rem; margin-top: 6px;">🎉🧩🎉</div>
+    <br />
+    <button class="btn-action" onclick="location.reload()">Play Again</button>
+  </div>
+
+  <script>
+    const database = {
+      fact: [
+        { q: "I build strong bones. Found in milk.", o: ["Calcium", "Iron", "Sugar", "Salt"], a: "Calcium", i: "🥛" },
+        { q: "I am a 'Healthy Fat' good for brains.", o: ["Avocado", "Candy", "Soda", "Chips"], a: "Avocado", i: "🥑" },
+        { q: "Main energy source for the body?", o: ["Carbs", "Water", "Vitamins", "Sleep"], a: "Carbs", i: "⚡" },
+        { q: "Vitamin A (good for eyes) is in...", o: ["Carrots", "Bread", "Chicken", "Rice"], a: "Carrots", i: "🥕" },
+        { q: "Best drink for hydration?", o: ["Water", "Soda", "Juice", "Syrup"], a: "Water", i: "💧" },
+        { q: "Which is a leafy green vegetable?", o: ["Spinach", "Apple", "Steak", "Cheese"], a: "Spinach", i: "🍃" },
+        { q: "Protein helps build your...", o: ["Muscles", "Hair only", "Shoes", "Backpack"], a: "Muscles", i: "💪" },
+        { q: "Which fruit has lots of Vitamin C?", o: ["Orange", "Potato", "Bread", "Nuts"], a: "Orange", i: "🍊" },
+        { q: "Too much of this is bad for teeth.", o: ["Sugar", "Water", "Milk", "Vegetables"], a: "Sugar", i: "🍭" },
+        { q: "Most important meal to start the day?", o: ["Breakfast", "Dessert", "Midnight Snack", "None"], a: "Breakfast", i: "🍳" }
+      ],
+      action: [
+        { q: "Best exercise for the heart?", o: ["Running", "Sleeping", "Sitting", "Gaming"], a: "Running", i: "❤️" },
+        { q: "Stretching helps prevent...", o: ["Injuries", "Hunger", "Sweating", "Fun"], a: "Injuries", i: "🤸" },
+        { q: "Squats strengthen your...", o: ["Legs", "Ears", "Nose", "Fingers"], a: "Legs", i: "🦵" },
+        { q: "Daily activity goal for kids?", o: ["60 mins", "5 mins", "0 mins", "10 hours"], a: "60 mins", i: "⏱️" },
+        { q: "Does dancing count as exercise?", o: ["Yes!", "No", "Only if slow", "Never"], a: "Yes!", i: "💃" },
+        { q: "Jumping Jacks move your...", o: ["Whole Body", "Just eyes", "Just toes", "Just hair"], a: "Whole Body", i: "⭐" },
+        { q: "Push-ups make these strong.", o: ["Arms", "Feet", "Eyelashes", "Knees"], a: "Arms", i: "💪" },
+        { q: "When you run fast, you might...", o: ["Sweat", "Freeze", "Sleep", "Fly"], a: "Sweat", i: "💦" },
+        { q: "Yoga helps with...", o: ["Balance", "Yelling", "Running fast", "Eating"], a: "Balance", i: "🧘" },
+        { q: "Your heart is a...", o: ["Muscle", "Bone", "Liquid", "Rock"], a: "Muscle", i: "💓" }
+      ],
+      mindful: [
+        { q: "Best way to calm down?", o: ["Deep Breaths", "Yelling", "Throwing", "Running"], a: "Deep Breaths", i: "😤" },
+        { q: "Sleep helps you...", o: ["Learn better", "Forget everything", "Get weaker", "Trip"], a: "Learn better", i: "💤" },
+        { q: "Gratitude means...", o: ["Being thankful", "Being mad", "Being hungry", "Being loud"], a: "Being thankful", i: "🙏" },
+        { q: "Stress makes muscles feel...", o: ["Tight", "Loose", "Wet", "Invisible"], a: "Tight", i: "😬" },
+        { q: "Is it okay to feel sad?", o: ["Yes", "No", "Never", "Only on Tuesdays"], a: "Yes", i: "😢" },
+        { q: "Mindfulness is focusing on...", o: ["The Now", "Yesterday", "Tomorrow", "TV"], a: "The Now", i: "🧠" },
+        { q: "If a friend is sad, show...", o: ["Kindness", "Anger", "Silliness", "Nothing"], a: "Kindness", i: "🤝" },
+        { q: "Listening with your ears AND...", o: ["Eyes", "Nose", "Elbows", "Feet"], a: "Eyes", i: "👂" },
+        { q: "Nature helps us feel...", o: ["Calm", "Angry", "Scared", "Busy"], a: "Calm", i: "🌳" },
+        { q: "Positive self-talk is...", o: ["Being nice to yourself", "Being mean", "Being quiet", "Singing"], a: "Being nice to yourself", i: "🗣️" }
+      ]
+    };
+
+    // --- State Variables ---
+    let usedQuestions = { fact: [], action: [], mindful: [] }; // Stores indices of used questions
+    let currentStreak = 0;
+    let piecesUnlocked = 0;
+    const piecesNeeded = 9;
+    const streakGoal = 3;
+    let currentCardData = null;
+
+    function initPuzzle() {
+      const grid = document.getElementById('puzzle-grid');
+      grid.innerHTML = '';
+      for (let i = 0; i < 9; i++) {
+        const div = document.createElement('div');
+        div.className = `puzzle-piece p${i}`;
+        div.id = `piece-${i}`;
+        div.innerText = "?";
+        grid.appendChild(div);
+      }
+    }
+
+    function getUniqueQuestion(category) {
+      const pool = database[category];
+      const used = usedQuestions[category];
+
+      // If we used all questions, reset the pool for this category
+      if (used.length >= pool.length) {
+        usedQuestions[category] = [];
+      }
+
+      let randomIndex;
+      do {
+        randomIndex = Math.floor(Math.random() * pool.length);
+      } while (usedQuestions[category].includes(randomIndex));
+
+      // Mark as used
+      usedQuestions[category].push(randomIndex);
+
+      return pool[randomIndex];
+    }
+
+    function drawCard(category) {
+      document.getElementById('intro-msg').style.display = 'none';
+      document.getElementById('game-card').style.display = 'flex';
+      document.getElementById('next-btn').style.display = 'none';
+      document.getElementById('card-answer').innerText = '';
+
+      currentCardData = getUniqueQuestion(category);
+
+      // Render
+      document.getElementById('card-type').innerText = category.toUpperCase() + " CHALLENGE";
+      document.getElementById('card-icon').innerText = currentCardData.i;
+      document.getElementById('card-text').innerText = currentCardData.q;
+
+      const optionsDiv = document.getElementById('options');
+      optionsDiv.innerHTML = '';
+
+      // Shuffle options visually but keep logic intact
+      let shuffledOptions = [...currentCardData.o];
+      shuffledOptions.sort(() => Math.random() - 0.5);
+
+      shuffledOptions.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = 'option-button';
+        btn.innerText = opt;
+        btn.onclick = () => checkAnswer(opt, btn);
+        optionsDiv.appendChild(btn);
+      });
+    }
+
+    function checkAnswer(selected, btn) {
+      const isCorrect = (selected === currentCardData.a);
+      const allBtns = document.querySelectorAll('.option-button');
+
+      // Disable buttons
+      allBtns.forEach(b => b.classList.add('disabled'));
+
+      if (isCorrect) {
+        btn.classList.remove('disabled');
+        btn.classList.add('correct');
+        document.getElementById('card-answer').innerText = "Correct! ⭐";
+        document.getElementById('card-answer').style.color = "var(--success)";
+        handleProgress(true);
+      } else {
+        btn.classList.remove('disabled');
+        btn.classList.add('wrong');
+        document.getElementById('card-answer').innerText = `Oops! It was: ${currentCardData.a}`;
+        document.getElementById('card-answer').style.color = "var(--error)";
+
+        // Highlight correct
+        allBtns.forEach(b => {
+          if (b.innerText === currentCardData.a) {
+            b.classList.remove('disabled');
+            b.classList.add('correct');
+          }
+        });
+        handleProgress(false);
+      }
+
+      document.getElementById('next-btn').style.display = 'inline-block';
+    }
+
+    function handleProgress(isCorrect) {
+      if (isCorrect) {
+        currentStreak++;
+      }
+      // Note: We do NOT reset streak on wrong answer, making it easier for kids.
+      // If you want harder mode, add: else { currentStreak = 0; }
+
+      if (currentStreak >= streakGoal) {
+        unlockPiece();
+        currentStreak = 0;
+      }
+
+      updateProgressBar();
+    }
+
+    function unlockPiece() {
+      if (piecesUnlocked >= piecesNeeded) return;
+
+      const piece = document.getElementById(`piece-${piecesUnlocked}`);
+      piece.classList.add('unlocked');
+      piece.innerText = ""; // Remove the "?"
+      piecesUnlocked++;
+
+      if (piecesUnlocked === piecesNeeded) {
+        setTimeout(() => {
+          document.getElementById('win-screen').style.display = 'flex';
+        }, 1000);
+      }
+    }
+
+    function updateProgressBar() {
+      const remaining = streakGoal - currentStreak;
+      const text = document.getElementById('progress-text');
+
+      if (piecesUnlocked >= piecesNeeded) {
+        text.innerText = "Puzzle Complete!";
+        text.style.color = "var(--success)";
+      } else {
+        text.innerText = `Correct Answers needed for next piece: ${remaining}`;
+        text.style.color = "#4a5966";
+      }
+    }
+
+    function hideCard() {
+      // Simply hides the card so they can pick a category again
+      document.getElementById('game-card').style.display = 'none';
+      document.getElementById('intro-msg').style.display = 'block';
+      document.getElementById('intro-msg').innerHTML = "Pick another category to continue your quest!";
+    }
+
+    // Start
+    initPuzzle();
+  </script>
+
+</body>
+</html>
